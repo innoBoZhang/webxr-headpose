@@ -11,22 +11,17 @@
       padding: 2em;
       line-height: 1.5em;
     }
-    button {
+
+    #enter-vr {
       font-size: 1.2em;
       padding: 1em 2em;
-      margin-bottom: 1em;
-      border: none;
-      cursor: pointer;
-    }
-    #enter-vr {
       background: #0f0;
       color: #000;
+      border: none;
+      cursor: pointer;
+      margin-bottom: 1em;
     }
-    #exit-vr {
-      background: red;
-      color: #fff;
-      display: none;
-    }
+
     pre {
       background: #222;
       padding: 1em;
@@ -35,75 +30,72 @@
   </style>
 </head>
 <body>
+  <!-- Button to enter VR -->
   <button id="enter-vr">Enter VR</button>
-  <button id="exit-vr">Exit VR</button>
+
+  <!-- Display area for head pose data -->
   <pre id="output">Waiting to start XR session...</pre>
 
   <script>
+    // Global variables for the XR session, reference space, and WebGL context
     let xrSession = null;
     let xrRefSpace = null;
     let gl = null;
 
-    const enterBtn = document.getElementById("enter-vr");
-    const exitBtn = document.getElementById("exit-vr");
-    const output = document.getElementById("output");
-
-    enterBtn.addEventListener("click", async () => {
+    // Event listener for the "Enter VR" button
+    document.getElementById("enter-vr").addEventListener("click", async () => {
+      // Check if WebXR is supported in the browser
       if (!navigator.xr) {
-        output.textContent = "WebXR not supported.";
+        document.getElementById("output").textContent = "WebXR not supported.";
         return;
       }
 
+      // Check if immersive-vr mode is supported
       const supported = await navigator.xr.isSessionSupported('immersive-vr');
       if (!supported) {
-        output.textContent = "Immersive VR not supported.";
+        document.getElementById("output").textContent = "Immersive VR not supported.";
         return;
       }
 
       try {
+        // Request to start an immersive VR session
         xrSession = await navigator.xr.requestSession('immersive-vr');
+
+        // Create a canvas and get a WebGL context for XR rendering
         const canvas = document.createElement('canvas');
         gl = canvas.getContext('webgl', { xrCompatible: true });
 
-        await gl.makeXRCompatible();
+        // Tell WebXR to use this WebGL context
         await xrSession.updateRenderState({
           baseLayer: new XRWebGLLayer(xrSession, gl)
         });
 
+        // Get the local reference space (head-relative tracking)
         xrRefSpace = await xrSession.requestReferenceSpace('local');
+
+        // Start the XR frame loop
         xrSession.requestAnimationFrame(onXRFrame);
-
-        enterBtn.style.display = 'none';
-        exitBtn.style.display = 'inline';
-
-        xrSession.addEventListener("end", () => {
-          output.textContent += "\nSession ended.";
-          enterBtn.style.display = 'inline';
-          exitBtn.style.display = 'none';
-        });
-
       } catch (e) {
-        output.textContent = "Failed to start XR session: " + e;
+        document.getElementById("output").textContent = "Failed to start XR session: " + e;
       }
     });
 
-    exitBtn.addEventListener("click", () => {
-      if (xrSession) {
-        xrSession.end();
-      }
-    });
-
+    // Called once per frame to update head pose data
     function onXRFrame(time, frame) {
       const session = frame.session;
+
+      // Request the next animation frame
       session.requestAnimationFrame(onXRFrame);
 
+      // Get the viewer's pose (head position and orientation)
       const pose = frame.getViewerPose(xrRefSpace);
       if (pose) {
-        const view = pose.views[0];
-        const pos = view.transform.position;
-        const ori = view.transform.orientation;
+        const view = pose.views[0]; // Usually the left or center eye
+        const pos = view.transform.position;     // Position (x, y, z)
+        const ori = view.transform.orientation;  // Orientation (quaternion: x, y, z, w)
 
-        output.textContent = `
+        // Display the pose data on the webpage
+        document.getElementById("output").textContent = `
 Head Pose Data:
 
 Position (meters):
